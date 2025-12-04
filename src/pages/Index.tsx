@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,14 @@ interface Level {
   name: string;
   description: string;
   shapes: ShapeType[];
+}
+
+interface Record {
+  level: number;
+  score: number;
+  total: number;
+  date: string;
+  percentage: number;
 }
 
 const levels: Level[] = [
@@ -152,7 +160,29 @@ const Index = () => {
   const [tasksCompleted, setTasksCompleted] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [records, setRecords] = useState<Record[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const savedRecords = localStorage.getItem('geometryRecords');
+    if (savedRecords) {
+      setRecords(JSON.parse(savedRecords));
+    }
+  }, []);
+
+  const saveRecord = (level: number, score: number, total: number) => {
+    const newRecord: Record = {
+      level,
+      score,
+      total,
+      date: new Date().toLocaleDateString('ru-RU'),
+      percentage: Math.round((score / total) * 100)
+    };
+    const updatedRecords = [...records, newRecord].sort((a, b) => b.percentage - a.percentage).slice(0, 10);
+    setRecords(updatedRecords);
+    localStorage.setItem('geometryRecords', JSON.stringify(updatedRecords));
+  };
 
   const startLevel = (levelIndex: number) => {
     setCurrentLevel(levelIndex);
@@ -199,6 +229,7 @@ const Index = () => {
 
   const nextTask = () => {
     if (tasksCompleted >= 5) {
+      saveRecord(currentLevel + 1, score, tasksCompleted);
       toast({
         title: "Уровень завершён!",
         description: `Ваш результат: ${score} из ${tasksCompleted}`,
@@ -220,10 +251,55 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12 animate-fade-in">
+          <div className="text-center mb-8 animate-fade-in">
             <h1 className="text-5xl font-bold text-foreground mb-3">Геометрия: Периметры</h1>
             <p className="text-lg text-muted-foreground">Образовательная игра для 7-9 классов</p>
           </div>
+
+          <div className="flex justify-center mb-8">
+            <Button 
+              onClick={() => setShowLeaderboard(!showLeaderboard)} 
+              variant={showLeaderboard ? "default" : "outline"}
+              size="lg"
+              className="gap-2"
+            >
+              <Icon name="Trophy" size={20} />
+              {showLeaderboard ? 'Скрыть рекорды' : 'Таблица рекордов'}
+            </Button>
+          </div>
+
+          {showLeaderboard && records.length > 0 && (
+            <Card className="p-6 mb-8 animate-fade-in">
+              <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+                <Icon name="Medal" size={24} className="text-yellow-500" />
+                Лучшие результаты
+              </h2>
+              <div className="space-y-3">
+                {records.map((record, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                        index === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                        index === 1 ? 'bg-gray-100 text-gray-700' : 
+                        index === 2 ? 'bg-orange-100 text-orange-700' : 
+                        'bg-blue-50 text-blue-700'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">Уровень {record.level}</p>
+                        <p className="text-sm text-muted-foreground">{record.date}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{record.percentage}%</p>
+                      <p className="text-sm text-muted-foreground">{record.score}/{record.total}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           <div className="grid gap-6">
             {levels.map((level, index) => (
